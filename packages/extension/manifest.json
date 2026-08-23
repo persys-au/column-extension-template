@@ -1,0 +1,19 @@
+{
+  "manifest_version": 3,
+  "name": "Browser Extension Template",
+  "version": "0.1.0",
+  "description": "Starter Manifest V3 browser extension for a TypeScript product.",
+  "permissions": ["activeTab", "scripting", "sidePanel", "storage"],
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self';"
+  },
+  "action": {
+    "default_title": "Open extension"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "side_panel": {
+    "default_path": "sidebar/index.html"
+  }
+}
