@@ -3,6 +3,7 @@
   "name": "Browser Extension Template",
   "version": "0.1.0",
   "description": "Starter Manifest V3 browser extension for a TypeScript product.",
+  "minimum_chrome_version": "116",
   "permissions": ["activeTab", "scripting", "sidePanel", "storage"],
   "content_security_policy": {
     "extension_pages": "script-src 'self'; object-src 'self';"

@@ -20,16 +20,17 @@ packages/server     Default server-side API, analysis application, and provider 
 ## Current status
 
 The repository contains project scaffolding only. The package boundaries, strict TypeScript setup,
-Manifest V3 build, typed runtime/build-time configuration, security defaults, CI workflow, and
-architecture documentation are ready. The server includes a deployment-ready health endpoint and a
-generic analysis boundary; page capture, extraction, concrete analysis schemas/provider, product API
-routes, and UI behavior must be implemented by the product repository created from this template.
+multi-browser Manifest V3 builds, typed runtime/build-time configuration, security defaults, CI
+workflow, and architecture documentation are ready. The server includes a deployment-ready health
+endpoint and a generic analysis boundary; page capture, extraction, concrete analysis
+schemas/provider, product API routes, and UI behavior must be implemented by the product repository
+created from this template.
 
 ## Requirements
 
 - Node.js 22 or newer;
 - pnpm 10.18.3;
-- Chrome or another Chromium browser for loading the extension build.
+- Chrome or Edge for the Chromium build, or Firefox for the Firefox build.
 
 The package manager and Node version are declared in [package.json](package.json) and [.nvmrc](.nvmrc).
 
@@ -67,6 +68,8 @@ script.
 ### Bootstrap checklist
 
 - [ ] Rename the root package, extension manifest name/description, HTML title, and README.
+- [ ] Update the Firefox manifest's `browser_specific_settings.gecko.id` and data collection
+      declaration for the product before signing or publishing it.
 - [ ] Fill in [docs/product.md](docs/product.md) with the product's problem, first workflow, data
       handling, and runtime needs.
 - [ ] Copy [.env.example](.env.example) to `.env` and set only the local values the product needs.
@@ -102,15 +105,29 @@ server key.
 
 ## Extension build
 
-Build the unpacked extension with:
+Build both unpacked extension targets with:
 
 ```bash
 pnpm build
 ```
 
-Then open `chrome://extensions`, enable Developer mode, choose **Load unpacked**, and select
-`packages/extension/dist`. Update the manifest's name, description, permissions, and entry points
-as the product implementation takes shape.
+The build writes `packages/extension/dist/chrome` for Chrome and Edge and
+`packages/extension/dist/firefox` for Firefox. To build one target, use:
+
+```bash
+pnpm --filter extension build:chrome
+pnpm --filter extension build:firefox
+```
+
+For Chrome or Edge, open the extensions page, enable Developer mode, choose **Load unpacked**, and
+select `packages/extension/dist/chrome`. For Firefox, open `about:debugging`, choose **This
+Firefox**, select **Load Temporary Add-on**, and open `packages/extension/dist/firefox/manifest.json`.
+
+The Firefox manifest contains a template extension ID and a `none` data collection declaration.
+Replace both with the product's stable Firefox ID and actual data flows before publishing to
+addons.mozilla.org. Keep browser API calls behind `packages/extension/src/platform`; product entry
+points can use the exported `extensionPlatform` contract without importing `chrome.*` or
+`browser.*` directly.
 
 ## Railway deployment
 
@@ -129,6 +146,8 @@ is for local development and documents the baseline variable expectations.
 
 - Keep domain contracts and deterministic processing independent of Chrome APIs, React, Express,
   Node-only modules, and AI SDKs.
+- Keep browser API calls behind the extension platform boundary and emit separate manifests for
+  browser families whose background or panel APIs differ.
 - Capture and clean page content locally where the browser has access to the rendered page.
 - Never send raw DOM objects or unbounded raw HTML through extension messages or to a server.
 - Perform deterministic cleanup, normalization, budgeting, and fingerprinting before semantic AI
@@ -164,6 +183,8 @@ extension code.
 - [Bootstrap ADR](docs/adr/0001-bootstrap-architecture.md) records the initial template decisions.
 - [Feature flag ADR](docs/adr/0002-feature-flags.md) records the shared Flagsmith/OpenFeature
   boundary.
+- [Multi-browser packaging ADR](docs/adr/0003-extension-multi-browser.md) records the supported
+  Chrome/Edge and Firefox targets.
 - [ADR template](docs/adr/000-template.md) provides the format for product decisions.
 - [Product definition](docs/product.md) provides the product-specific planning starting point.
 - [Development instruction set](docs/script.md) defines engineering standards.
