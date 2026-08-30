@@ -22,9 +22,9 @@ packages/server     Default server-side API, analysis application, and provider 
 The repository contains project scaffolding only. The package boundaries, strict TypeScript setup,
 multi-browser Manifest V3 builds, typed runtime/build-time configuration, security defaults, CI
 workflow, and architecture documentation are ready. The server includes a deployment-ready health
-endpoint and a generic analysis boundary; page capture, extraction, concrete analysis
-schemas/provider, product API routes, and UI behavior must be implemented by the product repository
-created from this template.
+endpoint, a generic analysis boundary, and a product-neutral registry with OpenAI and Anthropic
+adapters. Page capture, extraction, concrete analysis schemas/prompts, product API routes, and UI
+behavior must be implemented by the product repository created from this template.
 
 ## Requirements
 
@@ -77,8 +77,8 @@ script.
       them in `VITE_` variables or extension code.
 - [ ] Keep the default server runtime, or document an alternative analysis runtime before removing
       the server package and deployment adapter.
-- [ ] Add product-owned analysis input/output schemas, prompt, model configuration, and provider
-      adapter.
+- [ ] Add product-owned analysis input/output schemas, prompt, model configuration, and API route;
+      select a built-in provider or add a tested adapter to the server registry.
 - [ ] Configure a public Flagsmith environment key only if the product uses remote feature flags.
 - [ ] Implement the smallest product workflow and add product-specific contracts, tests, and ADRs.
 - [ ] Run `pnpm check` before the first release.
@@ -152,8 +152,9 @@ is for local development and documents the baseline variable expectations.
 - Never send raw DOM objects or unbounded raw HTML through extension messages or to a server.
 - Perform deterministic cleanup, normalization, budgeting, and fingerprinting before semantic AI
   analysis.
-- Keep provider credentials, prompt construction, and provider SDKs behind the default server-side
-  application boundary. A different analysis runtime requires an explicit product decision.
+- Keep provider credentials, prompt construction, and provider HTTP/SDK details behind the default
+  server-side application boundary. A different analysis runtime requires an explicit product
+  decision.
 - Validate untrusted JSON, environment values, messages, persisted state, and AI output at runtime
   with Zod.
 - Keep the service worker responsible for extension job lifecycle and the side panel responsible
@@ -164,16 +165,40 @@ is for local development and documents the baseline variable expectations.
 ## Environment
 
 The committed [.env.example](.env.example) is a neutral template for server/API and
-extension build-time settings. The server configuration parses `NODE_ENV` and `PORT`; the extension
-configuration parses `VITE_API_BASE_URL` and the public Flagsmith key. To create a local file:
+extension build-time settings. The server configuration parses `NODE_ENV`, `PORT`, provider
+selection, model, credential, timeout, and output-token values; the extension configuration parses
+`VITE_API_BASE_URL` and the public Flagsmith key. To create a local file:
 
 ```bash
 cp .env.example .env
 ```
 
-`.env` is ignored by Git and must never be committed. Provider-specific credentials should be added
-only in the product repository when a concrete provider adapter exists, and must never enter
-extension code.
+`.env` is ignored by Git and must never be committed. Provider credentials belong only in the
+ignored `.env` file or the hosting provider's secret store; they must never enter extension code.
+`AI_MODEL` and `AI_API_KEY` are fallback values for the selected provider, while `OPENAI_*` and
+`ANTHROPIC_*` values are provider-specific overrides.
+
+## AI provider boundary
+
+The server's [provider contract](packages/server/src/ai/provider.ts),
+[registry](packages/server/src/ai/registry.ts), and built-in
+[provider adapters](packages/server/src/ai/providers/index.ts) keep vendor request formats out of
+product application services. Products provide their own input/output schemas and prompt through
+`AiProviderAdapterOptions`, then resolve the configured provider in their server composition root:
+
+```ts
+const provider = createConfiguredAiProvider(
+  createDefaultAiProviderRegistry<AnalysisInput>({
+    openai: { systemInstruction: productPrompt },
+    anthropic: { systemInstruction: productPrompt },
+  }),
+  config.ai,
+);
+```
+
+Keep the resulting provider on the server. The application service still validates model output
+against the product-owned Zod schema before returning it to the extension. The template does not
+choose prompts, schemas, failover, or routing policy for a generated product.
 
 ## Documentation and CI
 
@@ -185,6 +210,8 @@ extension code.
   boundary.
 - [Multi-browser packaging ADR](docs/adr/0003-extension-multi-browser.md) records the supported
   Chrome/Edge and Firefox targets.
+- [Multi-provider AI ADR](docs/adr/0004-multi-provider-ai.md) records the server-side provider
+  registry and adapter boundary.
 - [ADR template](docs/adr/000-template.md) provides the format for product decisions.
 - [Product definition](docs/product.md) provides the product-specific planning starting point.
 - [Development instruction set](docs/script.md) defines engineering standards.

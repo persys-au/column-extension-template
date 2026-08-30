@@ -46,3 +46,7 @@ The first implementation can be tested with fixed fixtures and the included fake
 Product-specific analysis schemas, prompts, API contracts, and provider adapters can be added later
 without changing the generic package boundaries. Removing the server requires an alternative runtime
 for the core analysis capability.
+
+The provider-infrastructure portion of decision 8 is superseded by
+[ADR 0004](0004-multi-provider-ai.md); product-specific prompts, schemas, and analysis semantics
+remain generated-product responsibilities.

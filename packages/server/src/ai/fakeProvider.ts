@@ -5,6 +5,11 @@ export type FakeAiResponseFactory<TInput> = (
   context: AiProviderContext,
 ) => unknown | Promise<unknown>;
 
+export interface FakeAiProviderOptions {
+  id?: string;
+  model?: string;
+}
+
 /**
  * Deterministic provider for application tests and local experiments.
  *
@@ -12,11 +17,15 @@ export type FakeAiResponseFactory<TInput> = (
  */
 export class FakeAiProvider<TInput> implements AiProvider<TInput> {
   private readonly response: unknown;
+  readonly id: string;
+  readonly model: string;
 
-  constructor(response: FakeAiResponseFactory<TInput>);
-  constructor(response: unknown);
-  constructor(response: unknown) {
+  constructor(response: FakeAiResponseFactory<TInput>, options?: FakeAiProviderOptions);
+  constructor(response: unknown, options?: FakeAiProviderOptions);
+  constructor(response: unknown, options: FakeAiProviderOptions = {}) {
     this.response = response;
+    this.id = options.id ?? 'fake';
+    this.model = options.model ?? 'fake';
   }
 
   /**
