@@ -1,8 +1,9 @@
 # Template Architecture
 
 Status: bootstrap documentation. The extension emits Chrome/Edge and Firefox targets through a
-shared browser platform boundary. The server exposes a deployment health endpoint and a generic
-analysis boundary; concrete product analysis behavior is intentionally not implemented yet.
+shared browser platform boundary. The server exposes a deployment health endpoint, a generic
+analysis boundary, and a product-neutral multi-provider adapter registry; concrete product
+analysis behavior is intentionally not implemented yet.
 
 ## Purpose
 
@@ -53,8 +54,9 @@ broader abstractions:
 - runtime validation protects every untrusted boundary;
 - the side panel renders structured state and results.
 
-The exact page model, analysis input/output semantics, prompt, and concrete provider are product
-decisions. The template does not create them speculatively.
+The exact page model, analysis input/output semantics, prompt, and provider selection are product
+decisions. The template supplies common adapters but does not create product semantics
+speculatively.
 
 ## AI analysis boundary
 
@@ -67,8 +69,10 @@ capability.
 The core package provides generic `AnalysisRequest<TInput>` and `AnalysisResult<TOutput>` contracts,
 plus schema factories for product-owned input and output schemas. The server package provides
 `AnalysisService<TInput, TOutput>`, the vendor-neutral `AiProvider<TInput>` port, a deterministic fake
-provider, and typed failures for invalid input, invalid output, provider failure, and timeout.
-Products supply the concrete schemas, prompt, model configuration, and provider adapter.
+provider, a provider factory registry, and native-fetch OpenAI and Anthropic adapters. Products
+supply the concrete schemas, prompt, input serializer, output parser or schema validation, and
+analysis API wiring. The built-in adapters only translate the shared request contract into each
+provider's API shape; they do not contain product prompts or domain models.
 
 ## Important concepts
 
@@ -77,7 +81,8 @@ Products supply the concrete schemas, prompt, model configuration, and provider 
   wiring stays in the build script.
 - Raw DOM objects and unbounded raw HTML do not cross extension-message or server boundaries.
 - AI output is data and must be validated before presentation.
-- The application service owns analysis orchestration; provider adapters own SDK details.
+- The application service owns analysis orchestration; provider adapters own vendor request and
+  response details.
 - The service worker owns job lifecycle and stale-request protection; the side panel owns display
   state.
 - Session state is ephemeral by default. Durable history needs an explicit product decision.
@@ -91,7 +96,8 @@ Products supply the concrete schemas, prompt, model configuration, and provider 
   schemas, and product defaults belong to the generated product, not this template.
 - Security defaults are documented in [security.md](security.md), including extension CSP, secret
   separation, and restrictions on server-side URL fetching.
-- New abstractions need a real second implementation or a clear test boundary.
+- The provider registry has separate OpenAI and Anthropic implementations; additional adapters need
+  a real product requirement and a focused contract test.
 
 ## Feature flags
 
@@ -116,9 +122,9 @@ queues, volumes, scaling, domains, secrets, and additional services.
 ## Deliberately deferred
 
 The bootstrap does not assume site-specific adapters, retrieval, embeddings, accounts, billing,
-durable history, product-specific feature flags and flag-driven behavior, concrete provider
-implementations, multi-provider routing, a database, automatic analysis, or a generalized plugin
-system. Add them only when a product requirement and an ADR justify them.
+durable history, product-specific feature flags and flag-driven behavior, provider failover or
+load-balancing policy, a database, automatic analysis, or a generalized plugin system. Add them
+only when a product requirement and an ADR justify them.
 
 ## Tooling
 

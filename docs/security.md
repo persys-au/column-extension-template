@@ -20,6 +20,11 @@ generated product must review these rules against its actual permissions, data f
 - Do not fetch arbitrary user-supplied URLs from the server. If a product needs server-side fetching,
   define an allowlist and validate URL, scheme, redirects, response size, and timeout explicitly.
 - Keep provider credentials and prompt construction on the server side.
+- The built-in provider adapters read credentials from server-only settings (`OPENAI_API_KEY`,
+  `ANTHROPIC_API_KEY`, or the selected-provider `AI_API_KEY` fallback); never put these values in
+  `VITE_` variables or extension code.
+- Resolve the selected provider during server composition so missing credentials and unsupported
+  provider IDs fail before handling user analysis requests.
 - Do not log page content, credentials, or complete provider prompts by default.
 
 ## Repository
