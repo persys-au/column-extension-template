@@ -1,0 +1,29 @@
+{
+  "manifest_version": 3,
+  "name": "Browser Extension Template",
+  "version": "0.1.0",
+  "description": "Starter Manifest V3 browser extension for a TypeScript product.",
+  "permissions": ["activeTab", "scripting", "storage"],
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "extension-template@example.org",
+      "strict_min_version": "109.0",
+      "data_collection_permissions": {
+        "required": ["none"]
+      }
+    }
+  },
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self';"
+  },
+  "action": {
+    "default_title": "Open extension"
+  },
+  "background": {
+    "scripts": ["background.js"]
+  },
+  "sidebar_action": {
+    "default_title": "Browser Extension Template",
+    "default_panel": "sidebar/index.html"
+  }
+}

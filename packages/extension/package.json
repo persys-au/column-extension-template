@@ -4,7 +4,10 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "node scripts/build.mjs",
+    "build": "pnpm run build:core && node scripts/build.mjs all",
+    "build:chrome": "pnpm run build:core && node scripts/build.mjs chrome",
+    "build:core": "pnpm --filter core build",
+    "build:firefox": "pnpm run build:core && node scripts/build.mjs firefox",
     "dev": "vite --host",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
@@ -16,13 +19,14 @@
     "flagsmith": "^9.3.1",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
+    "webextension-polyfill": "^0.12.0",
     "zod": "^4.0.0"
   },
   "devDependencies": {
-    "@types/chrome": "^0.0.270",
     "@types/node": "^22.15.30",
     "@types/react": "^19.1.10",
     "@types/react-dom": "^19.1.7",
+    "@types/webextension-polyfill": "^0.12.5",
     "@vitejs/plugin-react": "^5.0.2",
     "esbuild": "^0.25.9",
     "vite": "^7.1.3"

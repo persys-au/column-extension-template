@@ -11,6 +11,8 @@ generated product must review these rules against its actual permissions, data f
 - Values exposed through `VITE_` variables are public and may be bundled into the extension. Never put
   admin keys, server credentials, or other secrets in them.
 - Treat captured page content as untrusted input. Bound and validate it before transport or storage.
+- Keep browser-specific API calls behind the platform adapter so target differences do not bypass the
+  extension's validation and permission boundaries.
 
 ## Server
 
@@ -25,3 +27,5 @@ generated product must review these rules against its actual permissions, data f
 - Keep local `.env` files ignored and commit only `.env.example` placeholders.
 - Review new permissions, endpoints, storage, dependencies, and data retention in the product
   definition and an ADR when the decision is non-trivial.
+- Replace the Firefox manifest's template extension ID and `data_collection_permissions` declaration
+  with product-owned values before signing or publishing an add-on.

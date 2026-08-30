@@ -1,6 +1,7 @@
 # Template Architecture
 
-Status: bootstrap documentation. The server exposes a deployment health endpoint and a generic
+Status: bootstrap documentation. The extension emits Chrome/Edge and Firefox targets through a
+shared browser platform boundary. The server exposes a deployment health endpoint and a generic
 analysis boundary; concrete product analysis behavior is intentionally not implemented yet.
 
 ## Purpose
@@ -23,6 +24,22 @@ credentials must stay inside their owning runtime boundaries.
 
 Product-specific domain models and use cases belong in the generated product and should not be
 pushed into generic template abstractions prematurely.
+
+## Browser platform boundary
+
+The extension keeps one product package and isolates browser differences in
+`packages/extension/src/platform`. The platform adapter exposes the promise-based tabs, runtime,
+action, scripting, and panel capabilities used by extension entry points. Product code should use
+that contract rather than calling `chrome.*` or `browser.*` directly.
+
+`webextension-polyfill` normalizes the shared WebExtensions API surface. Chromium panel access is
+bound to `sidePanel.open`, while Firefox panel access is bound to `sidebarAction.open`; the selected
+implementation is the only browser-specific panel decision in the runtime code.
+
+The build emits two unpacked targets: `dist/chrome` uses the Chromium manifest and is shared by
+Chrome and Edge, while `dist/firefox` uses a Firefox manifest with `background.scripts` and
+`sidebar_action`. Safari remains deferred because its WebExtension packaging and host integration
+need a separate distribution decision.
 
 ## First-slice direction
 
@@ -56,6 +73,8 @@ Products supply the concrete schemas, prompt, model configuration, and provider 
 ## Important concepts
 
 - Deterministic cleanup and preprocessing happen before semantic analysis.
+- Browser-specific APIs stay behind the extension platform boundary, while target-specific manifest
+  wiring stays in the build script.
 - Raw DOM objects and unbounded raw HTML do not cross extension-message or server boundaries.
 - AI output is data and must be validated before presentation.
 - The application service owns analysis orchestration; provider adapters own SDK details.
@@ -110,5 +129,6 @@ system. Add them only when a product requirement and an ADR justify them.
 - ESLint 9 and Prettier 3 for quality checks;
 - React and Vite for the side panel;
 - esbuild for content-script and service-worker bundles;
+- webextension-polyfill for the shared browser API surface;
 - OpenFeature and Flagsmith for extension feature flags;
 - Express for an optional analysis API.
