@@ -6,7 +6,7 @@
   "description": "Reusable TypeScript browser-extension project template",
   "packageManager": "pnpm@10.18.3",
   "engines": {
-    "node": ">=22.0.0",
+    "node": ">=22.12.0",
     "pnpm": ">=10.0.0"
   },
   "scripts": {

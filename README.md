@@ -28,7 +28,7 @@ behavior must be implemented by the product repository created from this templat
 
 ## Requirements
 
-- Node.js 22 or newer;
+- Node.js 22.12.0 or newer;
 - pnpm 10.18.3;
 - Chrome or Edge for the Chromium build, or Firefox for the Firefox build.
 
