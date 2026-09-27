@@ -155,6 +155,8 @@ is for local development and documents the baseline variable expectations.
 - Keep provider credentials, prompt construction, and provider HTTP/SDK details behind the default
   server-side application boundary. A different analysis runtime requires an explicit product
   decision.
+- Bound and strictly parse server JSON request bodies before product route validation; use the
+  application service's caller-owned cancellation signal for stale or abandoned extension work.
 - Validate untrusted JSON, environment values, messages, persisted state, and AI output at runtime
   with Zod.
 - Keep the service worker responsible for extension job lifecycle and the side panel responsible
@@ -197,8 +199,11 @@ const provider = createConfiguredAiProvider(
 ```
 
 Keep the resulting provider on the server. The application service still validates model output
-against the product-owned Zod schema before returning it to the extension. The template does not
-choose prompts, schemas, failover, or routing policy for a generated product.
+against the product-owned Zod schema before returning it to the extension. Products may also attach
+an optional content-free usage diagnostics sink to record provider, model, request-size, latency,
+and available token metadata without logging prompts, responses, or page content. The template does
+not choose prompts, schemas, failover, routing, or diagnostics retention policy for a generated
+product.
 
 ## Documentation and CI
 
@@ -212,6 +217,10 @@ choose prompts, schemas, failover, or routing policy for a generated product.
   Chrome/Edge and Firefox targets.
 - [Multi-provider AI ADR](docs/adr/0004-multi-provider-ai.md) records the server-side provider
   registry and adapter boundary.
+- [Bounded analysis lifecycle ADR](docs/adr/0005-bounded-analysis-lifecycle.md) records HTTP
+  request limits and caller-controlled cancellation.
+- [AI usage diagnostics ADR](docs/adr/0006-ai-usage-diagnostics.md) records the optional,
+  content-free provider usage telemetry boundary.
 - [ADR template](docs/adr/000-template.md) provides the format for product decisions.
 - [Product definition](docs/product.md) provides the product-specific planning starting point.
 - [Development instruction set](docs/script.md) defines engineering standards.

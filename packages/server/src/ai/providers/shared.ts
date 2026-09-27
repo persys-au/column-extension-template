@@ -1,4 +1,10 @@
-import type { AiOutputParser, AiProviderAdapterOptions, AiProviderSettings } from '../provider.js';
+import type {
+  AiOutputParser,
+  AiProviderAdapterOptions,
+  AiProviderSettings,
+  AiUsageDiagnostics,
+  AiUsageDiagnosticsSink,
+} from '../provider.js';
 
 export const defaultStructuredOutputInstruction = 'Return only a valid JSON object.';
 
@@ -12,6 +18,21 @@ export type AiProviderTransportErrorCode =
   | 'incomplete_response';
 
 const maxProviderErrorBodyLength = 4_096;
+
+export function getUtf8ByteLength(value: string): number {
+  return new TextEncoder().encode(value).byteLength;
+}
+
+export function notifyUsageSink(
+  sink: AiUsageDiagnosticsSink | undefined,
+  diagnostics: AiUsageDiagnostics,
+): void {
+  try {
+    sink?.(diagnostics);
+  } catch {
+    return;
+  }
+}
 
 /**
  * Typed failure raised by a provider adapter while preparing or sending a request.

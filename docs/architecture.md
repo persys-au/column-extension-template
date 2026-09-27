@@ -1,9 +1,9 @@
 # Template Architecture
 
 Status: bootstrap documentation. The extension emits Chrome/Edge and Firefox targets through a
-shared browser platform boundary. The server exposes a deployment health endpoint, a generic
-analysis boundary, and a product-neutral multi-provider adapter registry; concrete product
-analysis behavior is intentionally not implemented yet.
+shared browser platform boundary. The server exposes a deployment health endpoint, a bounded HTTP
+boundary, a cancellable generic analysis boundary, and a product-neutral multi-provider adapter
+registry; concrete product analysis behavior is intentionally not implemented yet.
 
 ## Purpose
 
@@ -51,6 +51,10 @@ broader abstractions:
 - browser-specific code captures only the rendered data it needs;
 - pure code cleans, normalizes, bounds, and fingerprints that data;
 - an application service coordinates analysis through a provider port;
+- the HTTP boundary accepts only strict, bounded JSON and reports malformed or oversized requests
+  explicitly;
+- caller cancellation propagates through the application service to provider work, alongside the
+  service-owned timeout;
 - runtime validation protects every untrusted boundary;
 - the side panel renders structured state and results.
 
@@ -74,6 +78,15 @@ supply the concrete schemas, prompt, input serializer, output parser or schema v
 analysis API wiring. The built-in adapters only translate the shared request contract into each
 provider's API shape; they do not contain product prompts or domain models.
 
+`AnalysisService` accepts a caller-owned `AbortSignal` outside the serialized request contract. It
+composes that signal with the service timeout, aborts provider work when either limit is reached, and
+reports caller cancellation separately from provider failure. It can also forward an optional
+content-free usage diagnostics sink to providers; adapters may report request size, latency, and
+vendor-supplied token counts without logging prompts, responses, or page content. The included JSONL
+sink is best effort and opt-in. The Express composition root installs a strict JSON parser with a
+configurable 1 MB default limit before product routes are added; product routes still own their
+specific schemas and response contracts.
+
 ## Important concepts
 
 - Deterministic cleanup and preprocessing happen before semantic analysis.
@@ -83,6 +96,10 @@ provider's API shape; they do not contain product prompts or domain models.
 - AI output is data and must be validated before presentation.
 - The application service owns analysis orchestration; provider adapters own vendor request and
   response details.
+- HTTP bodies are strictly parsed and bounded before route-level schema validation; request limits
+  are transport safeguards, not substitutes for product input schemas.
+- Cancellation is an out-of-band lifecycle concern. It is propagated through `AbortSignal` and is
+  never serialized into browser/server contracts or logged as page content.
 - The service worker owns job lifecycle and stale-request protection; the side panel owns display
   state.
 - Session state is ephemeral by default. Durable history needs an explicit product decision.
@@ -90,6 +107,8 @@ provider's API shape; they do not contain product prompts or domain models.
   persisted snapshots, and AI output.
 - AI analysis is a core capability; the default server runtime owns provider invocation and output
   validation, while the contracts remain independent of that runtime.
+- AI usage diagnostics are optional operational metadata; sinks must remain content-free and must
+  not make an analysis request fail when diagnostics persistence is unavailable.
 - Server runtime and extension build-time configuration are parsed at their respective boundaries;
   there is no universal configuration object shared across runtimes.
 - The template supports Flagsmith through OpenFeature for remote feature flags. Flag names, payload
@@ -123,8 +142,9 @@ queues, volumes, scaling, domains, secrets, and additional services.
 
 The bootstrap does not assume site-specific adapters, retrieval, embeddings, accounts, billing,
 durable history, product-specific feature flags and flag-driven behavior, provider failover or
-load-balancing policy, a database, automatic analysis, or a generalized plugin system. Add them
-only when a product requirement and an ADR justify them.
+load-balancing policy, a database, automatic analysis, process-local analysis caching or refresh
+semantics, or a generalized plugin system. Add them only when a product requirement and an ADR
+justify them.
 
 ## Tooling
 

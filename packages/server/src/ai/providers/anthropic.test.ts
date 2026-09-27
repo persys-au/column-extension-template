@@ -77,4 +77,42 @@ describe('Anthropic provider adapter', () => {
 
     expect(provider).toMatchObject({ id: 'anthropic', model: 'test-model' });
   });
+
+  it('emits content-free usage diagnostics when provider metadata is available', async () => {
+    const fetcher = vi.fn<typeof fetch>(
+      async () =>
+        new Response(
+          JSON.stringify({
+            content: [{ type: 'text', text: '{"summary":"done"}' }],
+            usage: {
+              input_tokens: 12,
+              output_tokens: 5,
+              cache_read_input_tokens: 3,
+            },
+          }),
+          { status: 200 },
+        ),
+    );
+    const onUsage = vi.fn();
+    const provider = new AnthropicProvider(
+      { model: 'test-model', credentials: { apiKey: 'secret' } },
+      { fetch: fetcher },
+    );
+
+    await provider.analyze({ text: 'article' }, { ...context, onUsage });
+
+    expect(onUsage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        requestId: 'request-1',
+        providerId: 'anthropic',
+        model: 'test-model',
+        inputTokens: 12,
+        cachedInputTokens: 3,
+        outputTokens: 5,
+        totalTokens: 17,
+        requestBytes: expect.any(Number),
+        durationMs: expect.any(Number),
+      }),
+    );
+  });
 });
