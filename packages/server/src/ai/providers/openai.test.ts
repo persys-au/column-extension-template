@@ -107,6 +107,47 @@ describe('OpenAI provider adapter', () => {
     });
   });
 
+  it('emits content-free usage diagnostics when provider metadata is available', async () => {
+    const fetcher = vi.fn<typeof fetch>(
+      async () =>
+        new Response(
+          JSON.stringify({
+            choices: [{ message: { content: '{"summary":"done"}' } }],
+            usage: {
+              prompt_tokens: 12,
+              completion_tokens: 5,
+              total_tokens: 17,
+              prompt_tokens_details: { cached_tokens: 3 },
+              completion_tokens_details: { reasoning_tokens: 2 },
+            },
+          }),
+          { status: 200 },
+        ),
+    );
+    const onUsage = vi.fn();
+    const provider = new OpenAiProvider(
+      { model: 'test-model', credentials: { apiKey: 'secret' } },
+      { fetch: fetcher },
+    );
+
+    await provider.analyze({ text: 'article' }, { ...context, onUsage });
+
+    expect(onUsage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        requestId: 'request-1',
+        providerId: 'openai',
+        model: 'test-model',
+        inputTokens: 12,
+        cachedInputTokens: 3,
+        outputTokens: 5,
+        reasoningTokens: 2,
+        totalTokens: 17,
+        requestBytes: expect.any(Number),
+        durationMs: expect.any(Number),
+      }),
+    );
+  });
+
   it('can be registered through the common provider factory contract', () => {
     const factory = createOpenAiProviderFactory<{ text: string }>();
     const provider = factory.create({ model: 'test-model', credentials: { apiKey: 'secret' } });

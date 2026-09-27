@@ -10,6 +10,8 @@ import {
   AiProviderTransportError,
   buildProviderUrl,
   defaultStructuredOutputInstruction,
+  getUtf8ByteLength,
+  notifyUsageSink,
   parseProviderOutput,
   requestProviderJson,
   requireProviderCredential,
@@ -32,6 +34,21 @@ const openAiResponseSchema = z.object({
       }),
     )
     .min(1),
+  usage: z
+    .object({
+      prompt_tokens: z.number().int().nonnegative(),
+      completion_tokens: z.number().int().nonnegative(),
+      total_tokens: z.number().int().nonnegative(),
+      prompt_tokens_details: z
+        .object({ cached_tokens: z.number().int().nonnegative().nullable().optional() })
+        .nullable()
+        .optional(),
+      completion_tokens_details: z
+        .object({ reasoning_tokens: z.number().int().nonnegative().nullable().optional() })
+        .nullable()
+        .optional(),
+    })
+    .optional(),
 });
 
 export type OpenAiProviderOptions<TInput> = AiProviderAdapterOptions<TInput>;
@@ -94,6 +111,8 @@ export class OpenAiProvider<TInput> implements AiProvider<TInput> {
               },
             },
     };
+    const requestBody = JSON.stringify(payload);
+    const startedAt = Date.now();
     const response = await requestProviderJson(
       this.options.fetch ?? fetch,
       this.id,
@@ -105,7 +124,7 @@ export class OpenAiProvider<TInput> implements AiProvider<TInput> {
           authorization: `Bearer ${this.apiKey}`,
           'content-type': 'application/json',
         },
-        body: JSON.stringify(payload),
+        body: requestBody,
         signal: context.signal,
       },
     );
@@ -119,6 +138,26 @@ export class OpenAiProvider<TInput> implements AiProvider<TInput> {
         parsedResponse.error,
       );
     }
+
+    const usage = parsedResponse.data.usage;
+    notifyUsageSink(context.onUsage, {
+      requestId: context.requestId,
+      providerId: this.id,
+      model: this.model,
+      requestBytes: getUtf8ByteLength(requestBody),
+      ...(usage === undefined
+        ? {}
+        : {
+            inputTokens: usage.prompt_tokens,
+            cachedInputTokens: usage.prompt_tokens_details?.cached_tokens ?? 0,
+            outputTokens: usage.completion_tokens,
+            ...(usage.completion_tokens_details?.reasoning_tokens == null
+              ? {}
+              : { reasoningTokens: usage.completion_tokens_details.reasoning_tokens }),
+            totalTokens: usage.total_tokens,
+          }),
+      durationMs: Math.max(0, Date.now() - startedAt),
+    });
 
     const choice = parsedResponse.data.choices[0];
 

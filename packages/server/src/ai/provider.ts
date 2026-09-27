@@ -1,9 +1,24 @@
-/**
- * Runtime context supplied to an AI provider for one analysis request.
- */
+/** Content-free diagnostics emitted after a provider request completes. */
+export interface AiUsageDiagnostics {
+  requestId: string;
+  providerId: string;
+  model: string;
+  requestBytes: number;
+  inputTokens?: number;
+  cachedInputTokens?: number;
+  outputTokens?: number;
+  reasoningTokens?: number;
+  totalTokens?: number;
+  durationMs: number;
+}
+
+export type AiUsageDiagnosticsSink = (diagnostics: AiUsageDiagnostics) => void;
+
+/** Runtime context supplied to an AI provider for one analysis request. */
 export interface AiProviderContext {
   requestId: string;
   signal: AbortSignal;
+  onUsage?: AiUsageDiagnosticsSink;
 }
 
 /**

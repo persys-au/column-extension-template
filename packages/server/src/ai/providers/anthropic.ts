@@ -10,6 +10,8 @@ import {
   AiProviderTransportError,
   buildProviderUrl,
   defaultStructuredOutputInstruction,
+  getUtf8ByteLength,
+  notifyUsageSink,
   parseProviderOutput,
   requestProviderJson,
   requireProviderCredential,
@@ -29,6 +31,13 @@ const anthropicResponseSchema = z.object({
       }),
     )
     .min(1),
+  usage: z
+    .object({
+      input_tokens: z.number().int().nonnegative(),
+      output_tokens: z.number().int().nonnegative(),
+      cache_read_input_tokens: z.number().int().nonnegative().nullable().optional(),
+    })
+    .optional(),
 });
 
 export type AnthropicProviderOptions<TInput> = AiProviderAdapterOptions<TInput>;
@@ -87,6 +96,8 @@ export class AnthropicProvider<TInput> implements AiProvider<TInput> {
       };
     }
 
+    const requestBody = JSON.stringify(payload);
+    const startedAt = Date.now();
     const response = await requestProviderJson(
       this.options.fetch ?? fetch,
       this.id,
@@ -99,7 +110,7 @@ export class AnthropicProvider<TInput> implements AiProvider<TInput> {
           'content-type': 'application/json',
           'x-api-key': this.apiKey,
         },
-        body: JSON.stringify(payload),
+        body: requestBody,
         signal: context.signal,
       },
     );
@@ -113,6 +124,23 @@ export class AnthropicProvider<TInput> implements AiProvider<TInput> {
         parsedResponse.error,
       );
     }
+
+    const usage = parsedResponse.data.usage;
+    notifyUsageSink(context.onUsage, {
+      requestId: context.requestId,
+      providerId: this.id,
+      model: this.model,
+      requestBytes: getUtf8ByteLength(requestBody),
+      ...(usage === undefined
+        ? {}
+        : {
+            inputTokens: usage.input_tokens,
+            cachedInputTokens: usage.cache_read_input_tokens ?? 0,
+            outputTokens: usage.output_tokens,
+            totalTokens: usage.input_tokens + usage.output_tokens,
+          }),
+      durationMs: Math.max(0, Date.now() - startedAt),
+    });
 
     const content = parsedResponse.data.content
       .flatMap((block) => (block.type === 'text' && block.text !== undefined ? [block.text] : []))

@@ -1,11 +1,12 @@
 import { createAnalysisRequestSchema, type AnalysisRequest, type AnalysisResult } from 'core';
 import { z } from 'zod';
-import type { AiProvider } from '../ai/provider.js';
+import type { AiProvider, AiUsageDiagnosticsSink } from '../ai/provider.js';
 
 const defaultAnalysisTimeoutMs = 30_000;
 const timeoutSchema = z.number().int().positive();
 
-export type AnalysisErrorCode = 'invalid_input' | 'invalid_output' | 'provider_failure' | 'timeout';
+export type AnalysisErrorCode =
+  'invalid_input' | 'invalid_output' | 'provider_failure' | 'timeout' | 'cancelled';
 
 /**
  * Typed failure raised by the analysis application boundary.
@@ -25,6 +26,12 @@ export interface AnalysisServiceOptions<TInput, TOutput> {
   inputSchema: z.ZodType<TInput>;
   outputSchema: z.ZodType<TOutput>;
   timeoutMs?: number;
+  usageSink?: AiUsageDiagnosticsSink;
+}
+
+/** Runtime-only controls for one analysis execution. */
+export interface AnalysisExecutionOptions {
+  signal?: AbortSignal;
 }
 
 /**
@@ -38,27 +45,35 @@ export class AnalysisService<TInput, TOutput> {
   private readonly outputSchema: z.ZodType<TOutput>;
   private readonly provider: AiProvider<TInput>;
   private readonly timeoutMs: number;
+  private readonly usageSink: AiUsageDiagnosticsSink | undefined;
 
   constructor({
     provider,
     inputSchema,
     outputSchema,
     timeoutMs = defaultAnalysisTimeoutMs,
+    usageSink,
   }: AnalysisServiceOptions<TInput, TOutput>) {
     this.provider = provider;
     this.requestSchema = createAnalysisRequestSchema(inputSchema);
     this.outputSchema = outputSchema;
     this.timeoutMs = timeoutSchema.parse(timeoutMs);
+    this.usageSink = usageSink;
   }
 
   /**
    * Validate, execute, and validate one analysis request.
    *
    * @param request Product-specific input with a caller-generated request ID.
+   * @param options Optional caller-owned cancellation signal.
    * @returns A validated product-specific result with the same request ID.
-   * @throws AnalysisError when input, provider execution, timeout, or output validation fails.
+   * @throws AnalysisError when input, provider execution, timeout, cancellation, or output
+   * validation fails.
    */
-  async analyze(request: AnalysisRequest<TInput>): Promise<AnalysisResult<TOutput>> {
+  async analyze(
+    request: AnalysisRequest<TInput>,
+    options: AnalysisExecutionOptions = {},
+  ): Promise<AnalysisResult<TOutput>> {
     const parsedRequest = this.requestSchema.safeParse(request);
 
     if (!parsedRequest.success) {
@@ -71,11 +86,32 @@ export class AnalysisService<TInput, TOutput> {
 
     const controller = new AbortController();
     let timeoutId: ReturnType<typeof setTimeout> | undefined;
+    let removeCallerAbortListener: (() => void) | undefined;
+    const callerSignal = options.signal;
 
     try {
+      if (callerSignal?.aborted) {
+        controller.abort();
+        throw new AnalysisError('cancelled', 'Analysis request was cancelled');
+      }
+
+      const cancellationPromise =
+        callerSignal === undefined
+          ? undefined
+          : new Promise<never>((_, reject) => {
+              const handleCallerAbort = (): void => {
+                reject(new AnalysisError('cancelled', 'Analysis request was cancelled'));
+                controller.abort();
+              };
+
+              callerSignal.addEventListener('abort', handleCallerAbort, { once: true });
+              removeCallerAbortListener = () =>
+                callerSignal.removeEventListener('abort', handleCallerAbort);
+            });
       const providerPromise = this.provider.analyze(parsedRequest.data.input, {
         requestId: parsedRequest.data.requestId,
         signal: controller.signal,
+        ...(this.usageSink === undefined ? {} : { onUsage: this.usageSink }),
       });
       const timeoutPromise = new Promise<never>((_, reject) => {
         timeoutId = setTimeout(() => {
@@ -83,7 +119,10 @@ export class AnalysisService<TInput, TOutput> {
           controller.abort();
         }, this.timeoutMs);
       });
-      const rawOutput = await Promise.race([providerPromise, timeoutPromise]);
+      const rawOutput =
+        cancellationPromise === undefined
+          ? await Promise.race([providerPromise, timeoutPromise])
+          : await Promise.race([providerPromise, timeoutPromise, cancellationPromise]);
       const parsedOutput = this.outputSchema.safeParse(rawOutput);
 
       if (!parsedOutput.success) {
@@ -108,6 +147,7 @@ export class AnalysisService<TInput, TOutput> {
       if (timeoutId !== undefined) {
         clearTimeout(timeoutId);
       }
+      removeCallerAbortListener?.();
     }
   }
 }
