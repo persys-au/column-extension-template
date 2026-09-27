@@ -23,7 +23,7 @@
     "zod": "^4.0.0"
   },
   "devDependencies": {
-    "@types/node": "^22.15.30",
+    "@types/node": "^26.6.2",
     "@types/react": "^19.1.10",
     "@types/react-dom": "^19.2.5",
     "@types/webextension-polyfill": "^0.12.5",
